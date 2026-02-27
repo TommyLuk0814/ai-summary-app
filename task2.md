@@ -47,14 +47,31 @@ Once your project is created, you'll see the dashboard. Now let's create a stora
 
 ### Step 3: Get Your Supabase API Credentials
 
-1. Click **Settings** (bottom of left sidebar)
-2. Click **API** in the submenu
-3. Copy these values and save them in your `.env.local` file:
-   - **Project URL**: Copy the value under "Project URL"
-   - **Anon Key**: Copy the value under "anon" (public key)
-   - **Service Role Key**: Copy the value under "service_role" (secret key — keep this private!)
+#### 3.1: Create the `.env.local` file
 
-Edit your `.env.local` file in the `my-app/` directory:
+First, create a `.env.local` file in your `my-app/` directory:
+
+1. Open VS Code Explorer and navigate to the `my-app/` folder
+2. Right-click in the Explorer and select **New File**
+3. Name the file `.env.local`
+4. The file will be created in the `my-app/` directory
+
+**Why `.env.local`?** This file stores environment variables that:
+- Are specific to your local development environment
+- Should NOT be committed to GitHub (it's already in `.gitignore`)
+- Are automatically loaded by Next.js when running locally
+
+#### 3.2: Add Supabase API Credentials
+
+1. Go back to your Supabase Dashboard
+2. Click **Settings** (bottom of left sidebar)
+3. Click **API** in the submenu
+4. Copy these values:
+   - **Project URL**: The URL under "Project URL"
+   - **Anon Key**: The key under "anon" (public key)
+   - **Service Role Key**: The key under "service_role" (secret key — keep this private!)
+
+5. Paste the values into your `.env.local` file:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -62,10 +79,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 ```
 
+**Replace the values with your actual keys from Supabase.**
+
+6. Save the file: **Ctrl+S** (Windows/Linux) or **Cmd+S** (Mac)
+
 **Important**: 
 - `NEXT_PUBLIC_` prefix means this is safe to expose in the browser (it's the public anonymous key)
 - `SUPABASE_SERVICE_ROLE_KEY` is secret and should ONLY be used on the server side
 - Never commit `.env.local` to GitHub (it's in `.gitignore`)
+- After creating `.env.local`, you may need to restart your Next.js dev server for changes to take effect
+
+![alt text](image/env_local_created.png)
 
 ![alt text](image/supabase_api_credentials.png)
 
