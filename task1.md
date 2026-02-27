@@ -107,7 +107,7 @@ Open the forwarded port (Codespaces "Ports" tab) and confirm the page loads.
 
 Here is the default Next.js starter page you should see:
 
-> [SCREENSHOT PLACEHOLDER — After running the dev server, capture the Next.js starter page and save a screenshot here.]![image/Next.js_starter_page.png](image/Next.js_starter_page.png)
+> [SCREENSHOT PLACEHOLDER — After running the dev server, capture the Next.js starter page and save a screenshot here.]![alt text](image/Next.js_starter_page.png)
 
 
 
@@ -139,7 +139,7 @@ This component is the starting page of the AI Summary App. When the page loads, 
 
 Visit the app in your browser again to verify the changes took effect.
 
-> [SCREENSHOT PLACEHOLDER — After updating `app/page.tsx`, capture a screenshot of the minimal UI and save it here.]
+> [SCREENSHOT PLACEHOLDER — After updating `app/page.tsx`, capture a screenshot of the minimal UI and save it here.]![alt text](image/minimal_UI.png)
 
 Start a new terminal
 Let's commit this frontend scaffold as our first feature:
