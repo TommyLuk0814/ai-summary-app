@@ -238,9 +238,270 @@ export async function GET() {
 
 **What this does**: Lists all files currently in the `documents` bucket. This is useful for displaying a file list to users.
 
-### Step 8: Create a File Upload Component
+### Step 7.5: Create API Route for File Deletion
 
-Create `my-app/app/components/FileUploader.tsx`:
+Create `my-app/app/api/documents/delete/route.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get the filename from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const filename = searchParams.get('filename');
+
+    if (!filename) {
+      return NextResponse.json(
+        { error: 'Filename is required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete file from storage
+    const { error } = await supabase.storage
+      .from('documents')
+      .remove([filename]);
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      message: 'File deleted successfully',
+      filename: filename,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**What this does**: Deletes a document from Supabase storage. We pass the filename as a query parameter and return a success message upon deletion.
+
+### Step 7.6: Create API Route for Getting Document Download URL
+
+Create `my-app/app/api/documents/download/route.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get the filename from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const filename = searchParams.get('filename');
+
+    if (!filename) {
+      return NextResponse.json(
+        { error: 'Filename is required' },
+        { status: 400 }
+      );
+    }
+
+    // Generate a signed URL valid for 1 hour (3600 seconds)
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(filename, 3600);
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      downloadUrl: data.signedUrl,
+      filename: filename,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**What this does**: Generates a signed URL that allows temporary access to a document for preview/download. The URL expires after 1 hour for security.
+
+### Step 8: Create a Document List Component
+
+Create `my-app/app/components/DocumentList.tsx`:
+
+```typescript
+'use client';
+
+import { useEffect, useState } from 'react';
+
+interface Document {
+  name: string;
+  created_at: string;
+  metadata: {
+    size: number;
+  };
+}
+
+export default function DocumentList({ refreshTrigger }: { refreshTrigger: number }) {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const loadDocuments = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/documents/list');
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || 'Failed to load documents');
+      } else {
+        setDocuments(data.documents || []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error loading documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, [refreshTrigger]);
+
+  const handlePreview = async (filename: string) => {
+    try {
+      const response = await fetch(`/api/documents/download?filename=${encodeURIComponent(filename)}`);
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || 'Failed to generate preview URL');
+      } else {
+        // Open in new window for preview
+        window.open(data.downloadUrl, '_blank');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Preview error');
+    }
+  };
+
+  const handleDelete = async (filename: string) => {
+    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+      return;
+    }
+
+    setDeleting(filename);
+    try {
+      const response = await fetch(`/api/documents/delete?filename=${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || 'Failed to delete document');
+     } else {
+        // Remove from list
+        setDocuments(documents.filter(doc => doc.name !== filename));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete error');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  };
+
+  return (
+    <div className="w-full max-w-4xl mx-auto p-6 border border-gray-300 rounded-lg mt-8">
+      <h2 className="text-2xl font-bold mb-4">Uploaded Documents</h2>
+
+      {error && <p className="mb-4 p-4 bg-red-100 text-red-700 rounded">{error}</p>}
+
+      {loading && <p className="text-gray-600">Loading documents...</p>}
+
+      {!loading && documents.length === 0 && (
+        <p className="text-gray-600">No documents uploaded yet. Upload one to get started!</p>
+      )}
+
+      {!loading && documents.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border p-3 text-left">Filename</th>
+                <th className="border p-3 text-left">Size</th>
+                <th className="border p-3 text-left">Uploaded</th>
+                <th className="border p-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((doc) => (
+                <tr key={doc.name} className="border hover:bg-gray-50">
+                  <td className="border p-3">{doc.name}</td>
+                  <td className="border p-3">{formatFileSize(doc.metadata?.size || 0)}</td>
+                  <td className="border p-3">{formatDate(doc.created_at)}</td>
+                  <td className="border p-3">
+                    <button
+                      onClick={() => handlePreview(doc.name)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded mr-2"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => handleDelete(doc.name)}
+                      disabled={deleting === doc.name}
+                      className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white py-1 px-3 rounded"
+                    >
+                      {deleting === doc.name ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Component Features**:
+- **Load on mount and on refresh**: Uses `refreshTrigger` prop to reload when files are uploaded
+- **Preview**: Generates a signed URL and opens the document in a new tab
+- **Delete**: Removes the document with confirmation
+- **File formatting**: Shows file size in KB/MB and formatted dates
+- **User feedback**: Loading states, error messages, and deletion confirmation
+
+### Step 9: Update FileUploader Component
 
 ```typescript
 'use client';
@@ -328,26 +589,139 @@ export default function FileUploader() {
 - **User Feedback**: Shows loading state while uploading, displays success/error messages
 - **Disabled State**: Prevents multiple uploads and ensures file is selected
 
-### Step 9: Integrate FileUploader into the Main Page
+### Step 9: Update FileUploader Component to Trigger Refresh
+
+Update `my-app/app/components/FileUploader.tsx`:
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+
+interface FileUploaderProps {
+  onUploadSuccess: () => void;
+}
+
+export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
+      setError('');
+      setMessage('');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Upload failed');
+      } else {
+        setMessage(`File uploaded successfully: ${data.filename}`);
+        setFile(null);
+        // Reset file input
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        if (input) input.value = '';
+        // Trigger refresh of document list
+        onUploadSuccess();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto p-6 border border-gray-300 rounded-lg">
+      <h2 className="text-2xl font-bold mb-4">Upload Document</h2>
+      
+      <input
+        type="file"
+        onChange={handleFileChange}
+        disabled={uploading}
+        className="block w-full mb-4 p-2 border border-gray-200 rounded"
+      />
+
+      <button
+        onClick={handleUpload}
+        disabled={!file || uploading}
+        className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
+      >
+        {uploading ? 'Uploading...' : 'Upload'}
+      </button>
+
+      {message && <p className="mt-4 text-green-600">{message}</p>}
+      {error && <p className="mt-4 text-red-600">{error}</p>}
+    </div>
+  );
+}
+```
+
+**Key Changes**:
+- Added `onUploadSuccess` callback prop to notify parent component when upload is complete
+- Resets the file input after successful upload
+- Parent component can now trigger document list refresh using this callback
+
+### Step 10: Update Main Page to Show FileUploader and DocumentList
 
 Edit `my-app/app/page.tsx`:
 
 ```typescript
+'use client';
+
+import { useState } from 'react';
 import FileUploader from './components/FileUploader';
+import DocumentList from './components/DocumentList';
 
 export default function Home() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleUploadSuccess = () => {
+    // Increment trigger to refresh document list
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <main className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8">AI Summary App</h1>
-        <FileUploader />
+        <FileUploader onUploadSuccess={handleUploadSuccess} />
+        <DocumentList refreshTrigger={refreshTrigger} />
       </div>
     </main>
   );
 }
 ```
 
-### Step 10: Test the Upload Functionality Locally
+**What this does**:
+- Manages a `refreshTrigger` state
+- Passes the `onUploadSuccess` callback to `FileUploader`
+- When upload succeeds, increments `refreshTrigger` to refresh the document list
+- Displays both the uploader and document list components
 
 1. Start your development server:
    ```bash
