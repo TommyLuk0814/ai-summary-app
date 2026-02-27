@@ -316,7 +316,7 @@ Open `http://localhost:3000` and click the **Check backend** button. It should r
 
 Example output:
 
-> [SCREENSHOT PLACEHOLDER — After clicking the backend check button, capture the health-check output and save a screenshot here.]
+> [SCREENSHOT PLACEHOLDER — After clicking the backend check button, capture the health-check output and save a screenshot here.]![alt text](image/check_backend.png)
 
 
 **Commit checkpoint:**
