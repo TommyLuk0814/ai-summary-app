@@ -846,30 +846,22 @@ If the CLI prompts don't work, you can also add them through the web:
 
 **Tip:** The CLI approach (Option A) is faster for development and testing, while the dashboard approach (Option B) gives you more control and visibility into your deployment settings.
 
-### Step 12: Create Bucket Access Policy (Recommended for Security)
+## Step 12: Final Testing and Validation
+- Test all functionalities in the deployed environment:
+  - Upload a document and verify it appears in the list
+  ![alt text](image/upload_success_app.png)
 
-For added security, let's restrict bucket access to authenticated requests only:
+  ![alt text](image/upload_success_supabase.png)
 
-1. In Supabase Dashboard, go to **Storage** → **documents** → **Policies**
-2. Click **New policy**
-3. Choose a template (e.g., "Enable read access for all users")
-4. Repeat for write access if needed
+  - Click "Preview" and ensure the document opens correctly
+  ![alt text](image/preview_success.png)
+  
+  - Click "Delete" and confirm the document is removed from the list and Supabase storage
+  ![alt text](image/delete_success_app.png)
 
-**Security Consideration**: By default, we're using the service role key only on the server side, which is secure. Users interact with the Supabase API only through our Next.js API routes, which adds a security layer.
-
-### Summary of What We Built
-
-✅ Created a Supabase project and object storage bucket  
-✅ Set up API routes for file upload and listing  
-✅ Built a React component for user file uploads  
-✅ Tested locally and deployed to Vercel  
-✅ Verified files are stored in Supabase object storage  
-
-**Next Steps** (Section 7-8):
-- Add document preview functionality
-- Integrate AI summarization
-- Store document metadata in PostgreSQL
-- Add user authentication
+  ![alt text](image/delete_success_supabase.png)
+- Verify that the app is responsive and works well on mobile devices
+![alt text](image/mobile_test.png)
 
 ## Section 7: AI Summary for documents
 **Requirements:**  
