@@ -13,7 +13,397 @@ Test the app in your local development environment, then deploy the app to Verce
 
 **Steps with major screenshots:**
 
-> [your steps and screenshots go here]
+### Step 1: Create a Supabase Account and Project
+
+1. Go to [Supabase.com](https://supabase.com) and sign up for a free account using your GitHub account
+2. Click **New Project** to create a new project
+3. Configure your project:
+   - **Name**: `ai-summary-app` (or your preferred name)
+   - **Database Password**: Create a strong password (save this somewhere secure)
+   - **Region**: Choose the region closest to you (e.g., `Asia Pacific (Singapore)`)
+4. Click **Create new project** and wait for it to initialize (this may take a minute or two)
+
+**Understanding Supabase**: Supabase provides three main services we'll use:
+- **PostgreSQL Database**: For storing document metadata (we'll use this in Section 8)
+- **Object Storage**: For storing actual document files (PDF, DOCX, etc.)
+- **Auth** (optional): For user authentication
+
+![alt text](image/supabase_create_project.png)
+
+### Step 2: Set Up Supabase Object Storage
+
+Once your project is created, you'll see the dashboard. Now let's create a storage bucket for documents.
+
+1. In the left sidebar, click **Storage**
+2. Click **Create a new bucket**
+3. Configure the bucket:
+   - **Bucket name**: `documents` (lowercase, no spaces)
+   - **Make it public**: Leave unchecked for now (we'll control access via API)
+4. Click **Create bucket**
+
+**Why buckets?** Buckets are like folders in S3-compatible storage. They organize files by category. We use a "documents" bucket to store user-uploaded files.
+
+![alt text](image/create_documents_bucket.png)
+
+### Step 3: Get Your Supabase API Credentials
+
+1. Click **Settings** (bottom of left sidebar)
+2. Click **API** in the submenu
+3. Copy these values and save them in your `.env.local` file:
+   - **Project URL**: Copy the value under "Project URL"
+   - **Anon Key**: Copy the value under "anon" (public key)
+   - **Service Role Key**: Copy the value under "service_role" (secret key — keep this private!)
+
+Edit your `.env.local` file in the `my-app/` directory:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+```
+
+**Important**: 
+- `NEXT_PUBLIC_` prefix means this is safe to expose in the browser (it's the public anonymous key)
+- `SUPABASE_SERVICE_ROLE_KEY` is secret and should ONLY be used on the server side
+- Never commit `.env.local` to GitHub (it's in `.gitignore`)
+
+![alt text](image/supabase_api_credentials.png)
+
+### Step 4: Install Supabase Client Library
+
+In your `my-app/` directory, install the Supabase JavaScript client:
+
+```bash
+npm install @supabase/supabase-js
+```
+
+This library provides methods to interact with Supabase from your Node.js and browser code.
+
+**Understanding the Client**: The Supabase client is an abstraction layer that:
+- Handles authentication with Supabase
+- Manages file uploads/downloads to object storage
+- Executes database queries
+- Manages real-time subscriptions
+
+### Step 5: Create a Supabase Client Configuration File
+
+Create `my-app/app/lib/supabase.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+// Client-side Supabase client (can be used in browser and server)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+**Why separate this?** By creating a dedicated configuration file, we:
+- Have a single source of truth for Supabase initialization
+- Can easily import it in multiple files
+- Keep environment variable validation in one place
+
+### Step 6: Create Backend API Route for File Upload
+
+Create `my-app/app/api/upload/route.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    // Initialize Supabase with service role key (server-side only)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get the file from the request
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Generate a unique filename
+    const filename = `${Date.now()}-${file.name}`;
+
+    // Upload file to Supabase object storage
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .upload(filename, file);
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    // Return the file path
+    return NextResponse.json({
+      message: 'File uploaded successfully',
+      path: data.path,
+      filename: filename,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**Key Concepts Explained**:
+- **Service Role Key**: Used on the server side for operations we want to protect (the browser shouldn't have this key)
+- **FormData**: Standard way to send files in HTTP requests
+- **Unique Filenames**: Prevents file collisions (two users uploading the same filename)
+- **Error Handling**: Always catch errors and return meaningful messages
+
+### Step 7: Create Backend API Route for File Listing
+
+Create `my-app/app/api/documents/list/route.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // List all files in the documents bucket
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .list();
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      documents: data,
+      count: data.length,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**What this does**: Lists all files currently in the `documents` bucket. This is useful for displaying a file list to users.
+
+### Step 8: Create a File Upload Component
+
+Create `my-app/app/components/FileUploader.tsx`:
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+
+export default function FileUploader() {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
+      setError('');
+      setMessage('');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Upload failed');
+      } else {
+        setMessage(`File uploaded successfully: ${data.filename}`);
+        setFile(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto p-6 border border-gray-300 rounded-lg">
+      <h2 className="text-2xl font-bold mb-4">Upload Document</h2>
+      
+      <input
+        type="file"
+        onChange={handleFileChange}
+        disabled={uploading}
+        className="block w-full mb-4 p-2 border border-gray-200 rounded"
+      />
+
+      <button
+        onClick={handleUpload}
+        disabled={!file || uploading}
+        className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
+      >
+        {uploading ? 'Uploading...' : 'Upload'}
+      </button>
+
+      {message && <p className="mt-4 text-green-600">{message}</p>}
+      {error && <p className="mt-4 text-red-600">{error}</p>}
+    </div>
+  );
+}
+```
+
+**Component Breakdown**:
+- **State Management**: Tracks the selected file, upload status, and messages
+- **File Input**: Allows user to select a file
+- **Upload Handler**: Sends file to `/api/upload` endpoint
+- **User Feedback**: Shows loading state while uploading, displays success/error messages
+- **Disabled State**: Prevents multiple uploads and ensures file is selected
+
+### Step 9: Integrate FileUploader into the Main Page
+
+Edit `my-app/app/page.tsx`:
+
+```typescript
+import FileUploader from './components/FileUploader';
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-4xl font-bold text-center mb-8">AI Summary App</h1>
+        <FileUploader />
+      </div>
+    </main>
+  );
+}
+```
+
+### Step 10: Test the Upload Functionality Locally
+
+1. Start your development server:
+   ```bash
+   npm run dev
+   ```
+
+2. Open http://localhost:3000 in your browser
+
+3. Test the upload:
+   - Click the file input and select a test document (PDF, DOCX, TXT, etc.)
+   - Click the **Upload** button
+   - Verify you see a success message
+
+4. Verify in Supabase Dashboard:
+   - Go to [Supabase Dashboard](https://app.supabase.com)
+   - Click **Storage** → **documents**
+   - You should see your uploaded file there with a timestamp prefix
+
+![alt text](image/file_uploaded_success.png)
+
+**Testing Best Practices**:
+- Test with different file types (PDF, DOCX, TXT) to ensure they all upload
+- Test with a moderately sized file to ensure it completes
+- Try uploading the same file multiple times and verify they get unique names
+- Check the browser console and terminal for any error messages
+
+### Step 11: Deploy to Vercel
+
+1. Commit your changes:
+   ```bash
+   git add .
+   git commit -m "feat: add Supabase integration with file upload"
+   git push origin main
+   ```
+
+2. Go to [Vercel.com](https://vercel.com) and log in
+
+3. Click **Add New** → **Project**
+
+4. Import your `ai-summary-app` repository
+
+5. Before deploying, add environment variables:
+   - Click **Environment Variables**
+   - Add the three variables from your `.env.local`:
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_ROLE_KEY`
+
+6. Click **Deploy**
+
+7. Once deployed, test your app on the public URL and verify file uploads work in production
+
+![alt text](image/vercel_deploy_success.png)
+
+### Step 12: Create Bucket Access Policy (Recommended for Security)
+
+For added security, let's restrict bucket access to authenticated requests only:
+
+1. In Supabase Dashboard, go to **Storage** → **documents** → **Policies**
+2. Click **New policy**
+3. Choose a template (e.g., "Enable read access for all users")
+4. Repeat for write access if needed
+
+**Security Consideration**: By default, we're using the service role key only on the server side, which is secure. Users interact with the Supabase API only through our Next.js API routes, which adds a security layer.
+
+### Summary of What We Built
+
+✅ Created a Supabase project and object storage bucket  
+✅ Set up API routes for file upload and listing  
+✅ Built a React component for user file uploads  
+✅ Tested locally and deployed to Vercel  
+✅ Verified files are stored in Supabase object storage  
+
+**Next Steps** (Section 7-8):
+- Add document preview functionality
+- Integrate AI summarization
+- Store document metadata in PostgreSQL
+- Add user authentication
+
+> [Important: Capture and paste screenshots of your implementation at each step above, especially showing the files in your Supabase Storage bucket]
+> ![alt text](image/create_documents_bucket.png)
 
 ## Section 7: AI Summary for documents
 **Requirements:**  
