@@ -766,22 +766,50 @@ export default function Home() {
    git push origin main
    ```
 
-3. Deploy from the `my-app/` directory:
+3. Add environment variables to Vercel project (run this BEFORE deploying):
    ```bash
    cd my-app
+   vercel env add NEXT_PUBLIC_SUPABASE_URL
+   ```
+   When prompted, paste your Supabase URL from `.env.local`
+
+   Repeat for the other variables:
+   ```bash
+   vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+   vercel env add SUPABASE_SERVICE_ROLE_KEY
+   ```
+
+   **What each variable is:**
+   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL (e.g., `https://your-project.supabase.co`)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your anon/public key (safe to expose)
+   - `SUPABASE_SERVICE_ROLE_KEY`: Your service role key (keep it secret!)
+
+4. Deploy to production:
+   ```bash
    vercel --prod
    ```
 
-4. The CLI will prompt you:
-   - **Found existing project? Link to it?** - Select "Yes" if you've already created a Vercel project, or "No" to create a new one
-   - **Set up and deploy?** - Select "Yes"
+5. The CLI will confirm:
+   - **Found existing project? Link to it?** - Select "Yes" if linking, or "No" to create a new one
+   - The deployment will begin and show you the live URL when complete
 
-5. Add environment variables when prompted:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+6. Once deployed, test your app on the public URL and verify file uploads, previews, and deletions work in production
 
-6. The deployment will complete and you'll get a public URL
+**Alternative: Set Environment Variables via Web Dashboard**
+
+If the CLI prompts don't work, you can also add them through the web:
+
+1. Go to [Vercel.com](https://vercel.com) and log in
+2. Click on your project
+3. Go to **Settings** → **Environment Variables**
+4. Click **Add New**
+5. Enter the variable name and value:
+   - Name: `NEXT_PUBLIC_SUPABASE_URL`
+   - Value: (paste from your `.env.local`)
+6. Select which environment(s): **Production**, **Preview**, **Development**
+7. Click **Save**
+8. Repeat for the other two variables
+9. After adding all variables, redeploy: go to **Deployments** and click **Redeploy** on the latest deployment
 
 **Option B: Deploy using Web Dashboard (More Detailed)**
 
