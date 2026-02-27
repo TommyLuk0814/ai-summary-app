@@ -752,10 +752,43 @@ export default function Home() {
 
 ### Step 11: Deploy to Vercel
 
+**Option A: Deploy using Vercel CLI (Faster)**
+
+1. Install Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
+
+2. Commit your changes:
+   ```bash
+   git add .
+   git commit -m "feat: add document list, preview, and delete functionality"
+   git push origin main
+   ```
+
+3. Deploy from the `my-app/` directory:
+   ```bash
+   cd my-app
+   vercel
+   ```
+
+4. The CLI will prompt you:
+   - **Found existing project? Link to it?** - Select "Yes" if you've already created a Vercel project, or "No" to create a new one
+   - **Set up and deploy?** - Select "Yes"
+
+5. Add environment variables when prompted:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+
+6. The deployment will complete and you'll get a public URL
+
+**Option B: Deploy using Web Dashboard (More Detailed)**
+
 1. Commit your changes:
    ```bash
    git add .
-   git commit -m "feat: add Supabase integration with file upload"
+   git commit -m "feat: add document list, preview, and delete functionality"
    git push origin main
    ```
 
@@ -774,9 +807,16 @@ export default function Home() {
 
 6. Click **Deploy**
 
-7. Once deployed, test your app on the public URL and verify file uploads work in production
+7. Once deployed, test your app on the public URL and verify file uploads, previews, and deletions work in production
 
 ![alt text](image/vercel_deploy_success.png)
+
+**After Deployment:**
+- Your app is now live! Visit the public URL provided by Vercel
+- Test uploading, previewing, and deleting documents in production
+- For future deployments, just push to `main` and Vercel will automatically redeploy
+
+**Tip:** The CLI approach (Option A) is faster for development and testing, while the dashboard approach (Option B) gives you more control and visibility into your deployment settings.
 
 ### Step 12: Create Bucket Access Policy (Recommended for Security)
 
