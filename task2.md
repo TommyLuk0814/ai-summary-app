@@ -13,6 +13,7 @@ Test the app in your local development environment, then deploy the app to Verce
 
 **Steps with major screenshots:**
 
+> [Important: Capture and paste screenshots of your implementation at each step above, especially showing the files in your Supabase Storage bucket]
 ### Step 1: Create a Supabase Account and Project
 
 1. Go to [Supabase.com](https://supabase.com) and sign up for a free account using your GitHub account
@@ -365,7 +366,9 @@ export default function Home() {
    - Click **Storage** → **documents**
    - You should see your uploaded file there with a timestamp prefix
 
-![alt text](image/file_uploaded_success.png)
+![alt text](image/file_uploaded_success_app.png)
+
+![alt text](image/file_uploaded_success_supabase.png)
 
 **Testing Best Practices**:
 - Test with different file types (PDF, DOCX, TXT) to ensure they all upload
@@ -425,9 +428,6 @@ For added security, let's restrict bucket access to authenticated requests only:
 - Integrate AI summarization
 - Store document metadata in PostgreSQL
 - Add user authentication
-
-> [Important: Capture and paste screenshots of your implementation at each step above, especially showing the files in your Supabase Storage bucket]
-> ![alt text](image/create_documents_bucket.png)
 
 ## Section 7: AI Summary for documents
 **Requirements:**  
