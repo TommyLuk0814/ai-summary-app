@@ -878,6 +878,176 @@ Test the app in your local development environment, then deploy the app to Verce
 **Steps with major screenshots:**
 
 > [your steps and screenshots go here]
+### Step 1: Install Dependencies for Text Extraction and AI Client
+
+Back in the `my-app/` folder, install any additional libraries you'll need. For PDF extraction we can use `pdf-parse`; for AI calls install `openai` (or another SDK):
+
+```bash
+npm install pdf-parse openai
+```
+
+If you prefer to extract text using a different tool (Tesseract for images, `mammoth` for DOCX), install those instead.
+
+### Step 7.2: Add Environment Variables for AI Key
+
+Update your `.env.local` with the secret that grants access to your chosen model. For OpenAI:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Also add the same variable to `.env.example` (with placeholder value) and set it in Vercel (see Section 6 Step 11 instructions).
+
+### Step 7.3: Create Server–Side Helper to Extract Text and Call AI
+
+Create a new file `my-app/app/lib/ai.ts`:
+
+```typescript
+import pdf from 'pdf-parse';
+import { Configuration, OpenAIApi } from 'openai';
+
+const openai = new OpenAIApi(new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+}));
+
+export async function extractTextFromPdf(buffer: ArrayBuffer) {
+  const data = await pdf(buffer);
+  return data.text;
+}
+
+export async function summarizeText(text: string) {
+  const prompt = `Please write a concise summary (3-4 sentences) of the following document:\n\n${text}`;
+  const resp = await openai.createChatCompletion({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'system', content: 'You are a helpful summarization assistant.' },
+               { role: 'user', content: prompt }],
+    max_tokens: 400,
+  });
+  return resp.data.choices[0].message?.content.trim();
+}
+```
+
+> 💡 You can adjust the prompt, model, and token limits based on your needs.
+
+### Step 7.4: Add Summary API Route
+
+Create `my-app/app/api/documents/summarize/route.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+import { extractTextFromPdf, summarizeText } from '@/app/lib/ai';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { filename } = await request.json();
+    if (!filename) {
+      return NextResponse.json({ error: 'Filename required' }, { status: 400 });
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // download file from storage
+    const { data, error: downloadError } = await supabase.storage
+      .from('documents')
+      .download(filename);
+
+    if (downloadError || !data) {
+      return NextResponse.json({ error: 'Failed to fetch document' }, { status: 500 });
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const text = await extractTextFromPdf(arrayBuffer);
+    const summary = await summarizeText(text);
+
+    // optional: store summary in database
+    await supabase.from('summaries').insert({ filename, summary, created_at: new Date() });
+
+    return NextResponse.json({ summary });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Unknown' }, { status: 500 });
+  }
+}
+```
+
+*Note*: you may need to create a `summaries` table in Supabase. You can skip storing if you prefer.
+
+### Step 7.5: Update DocumentList Component with "Summarize" Button
+
+Modify `DocumentList.tsx` to add a third action:
+
+```tsx
+// inside actions <td>...
+<button
+  onClick={() => handleSummarize(doc.name)}
+  className="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded mr-2"
+>
+  Summarize
+</button>
+```
+
+And add the handler near `handlePreview`:
+
+```tsx
+const handleSummarize = async (filename: string) => {
+  try {
+    const response = await fetch('/api/documents/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error || 'Summarization failed');
+    } else {
+      alert(`Summary:\n\n${data.summary}`); // or render in UI
+    }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Error');
+  }
+};
+```
+
+> You may want to render the summary in a modal or below the list instead of an alert.
+
+### Step 7.6: Test Locally
+
+1. Run dev server (`npm run dev`)
+2. Upload a document
+3. Click **Summarize** on the document row
+4. Verify you see a summary pop up or display
+5. Check console/logs for any errors
+6. Verify the summary is stored in Supabase (via table view)
+
+Capture screenshots of the UI with summary results and the database row.
+
+### Step 7.7: Deploy and Verify
+
+1. Push your changes, then redeploy using the CLI or dashboard (refer to Section 6 Step 11)
+2. Make sure `OPENAI_API_KEY` is set in Vercel (via CLI or dashboard)
+3. Test the summary flow in the live app
+4. Grab screenshots of the deployed version performing summarization
+
+### Step 7.8: Handling Edge Cases & Responsiveness
+
+- Ensure the summary button disables while summarization is in progress
+- Catch and display errors if the file is unsupported or the AI service fails
+- If text extraction takes long, show a loading spinner or status message
+- Test on mobile sizes to make sure table and buttons wrap properly
+
+### Optional Improvements
+
+- Cache summaries per document to avoid repeated API calls
+- Allow users to edit or regenerate the summary
+- Show a preview of the first few lines of the document before summarizing
+- Use a WebSocket or server-sent events for progress updates on very large files
+
+**End of Section 7 tutorial.**
+
+Proceed to Section 8 when you're ready to integrate Postgres for metadata and summary storage.
 
 
 ## Section 8: Database Integration with Supabase  
