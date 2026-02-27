@@ -238,7 +238,7 @@ export async function GET() {
 
 **What this does**: Lists all files currently in the `documents` bucket. This is useful for displaying a file list to users.
 
-### Step 7.5: Create API Route for File Deletion
+### Step 7.1: Create API Route for File Deletion
 
 Create `my-app/app/api/documents/delete/route.ts`:
 
@@ -291,7 +291,7 @@ export async function DELETE(request: NextRequest) {
 
 **What this does**: Deletes a document from Supabase storage. We pass the filename as a query parameter and return a success message upon deletion.
 
-### Step 7.6: Create API Route for Getting Document Download URL
+### Step 7.2: Create API Route for Getting Document Download URL
 
 Create `my-app/app/api/documents/download/route.ts`:
 
@@ -589,7 +589,7 @@ export default function FileUploader() {
 - **User Feedback**: Shows loading state while uploading, displays success/error messages
 - **Disabled State**: Prevents multiple uploads and ensures file is selected
 
-### Step 9: Update FileUploader Component to Trigger Refresh
+### Step 9.1: Update FileUploader Component to Trigger Refresh
 
 Update `my-app/app/components/FileUploader.tsx`:
 

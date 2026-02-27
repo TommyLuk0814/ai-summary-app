@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 
-export default function FileUploader() {
+interface FileUploaderProps {
+  onUploadSuccess: () => void;
+}
+
+export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
@@ -42,6 +46,11 @@ export default function FileUploader() {
       } else {
         setMessage(`File uploaded successfully: ${data.filename}`);
         setFile(null);
+        // Reset file input
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        if (input) input.value = '';
+        // Trigger refresh of document list
+        onUploadSuccess();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload error');
