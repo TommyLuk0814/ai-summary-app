@@ -769,7 +769,7 @@ export default function Home() {
 3. Deploy from the `my-app/` directory:
    ```bash
    cd my-app
-   vercel
+   vercel --prod
    ```
 
 4. The CLI will prompt you:
