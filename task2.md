@@ -888,7 +888,7 @@ npm install pdf-parse openai
 
 If you prefer to extract text using a different tool (Tesseract for images, `mammoth` for DOCX), install those instead.
 
-### Step 7.2: Add Environment Variables for AI Key
+### Step 2: Add Environment Variables for AI Key
 
 Update your `.env.local` with the secret that grants access to your chosen model. For OpenAI:
 
@@ -896,40 +896,41 @@ Update your `.env.local` with the secret that grants access to your chosen model
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-Also add the same variable to `.env.example` (with placeholder value) and set it in Vercel (see Section 6 Step 11 instructions).
-
-### Step 7.3: Create Server–Side Helper to Extract Text and Call AI
+### Step 3: Create Server–Side Helper to Extract Text and Call AI
 
 Create a new file `my-app/app/lib/ai.ts`:
 
 ```typescript
-import pdf from 'pdf-parse';
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 
-const openai = new OpenAIApi(new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-}));
+});
 
 export async function extractTextFromPdf(buffer: ArrayBuffer) {
+  const pdfModule: any = await import('pdf-parse');
+  const pdf = pdfModule.default || pdfModule;
   const data = await pdf(buffer);
   return data.text;
 }
 
 export async function summarizeText(text: string) {
   const prompt = `Please write a concise summary (3-4 sentences) of the following document:\n\n${text}`;
-  const resp = await openai.createChatCompletion({
+  const resp = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    messages: [{ role: 'system', content: 'You are a helpful summarization assistant.' },
-               { role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: 'You are a helpful summarization assistant.' },
+      { role: 'user', content: prompt }
+    ],
     max_tokens: 400,
   });
-  return resp.data.choices[0].message?.content.trim();
+  return resp.choices[0].message?.content?.trim();
 }
 ```
 
 > 💡 You can adjust the prompt, model, and token limits based on your needs.
 
-### Step 7.4: Add Summary API Route
+### Step 4: Add Summary API Route
 
 Create `my-app/app/api/documents/summarize/route.ts`:
 
@@ -975,7 +976,7 @@ export async function POST(request: NextRequest) {
 
 *Note*: you may need to create a `summaries` table in Supabase. You can skip storing if you prefer.
 
-### Step 7.5: Update DocumentList Component with "Summarize" Button
+### Step 5: Update DocumentList Component with "Summarize" Button
 
 Modify `DocumentList.tsx` to add a third action:
 
@@ -1013,7 +1014,7 @@ const handleSummarize = async (filename: string) => {
 
 > You may want to render the summary in a modal or below the list instead of an alert.
 
-### Step 7.6: Test Locally
+### Step 6: Test Locally
 
 1. Run dev server (`npm run dev`)
 2. Upload a document
@@ -1024,14 +1025,14 @@ const handleSummarize = async (filename: string) => {
 
 Capture screenshots of the UI with summary results and the database row.
 
-### Step 7.7: Deploy and Verify
+### Step 7: Deploy and Verify
 
 1. Push your changes, then redeploy using the CLI or dashboard (refer to Section 6 Step 11)
 2. Make sure `OPENAI_API_KEY` is set in Vercel (via CLI or dashboard)
 3. Test the summary flow in the live app
 4. Grab screenshots of the deployed version performing summarization
 
-### Step 7.8: Handling Edge Cases & Responsiveness
+### Step 8: Handling Edge Cases & Responsiveness
 
 - Ensure the summary button disables while summarization is in progress
 - Catch and display errors if the file is unsupported or the AI service fails

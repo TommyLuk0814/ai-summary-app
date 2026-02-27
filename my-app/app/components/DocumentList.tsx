@@ -15,6 +15,7 @@ export default function DocumentList({ refreshTrigger }: { refreshTrigger: numbe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState<string | null>(null);
 
   const loadDocuments = async () => {
     setLoading(true);
@@ -50,6 +51,28 @@ export default function DocumentList({ refreshTrigger }: { refreshTrigger: numbe
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Preview error');
+    }
+  };
+
+  const handleSummarize = async (filename: string) => {
+    setSummarizing(filename);
+    setError('');
+    try {
+      const resp = await fetch('/api/documents/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setError(data.error || 'Failed to summarize document');
+      } else {
+        alert(`Summary for ${filename}:\n\n${data.summary}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Summarize error');
+    } finally {
+      setSummarizing(null);
     }
   };
 
@@ -123,6 +146,13 @@ export default function DocumentList({ refreshTrigger }: { refreshTrigger: numbe
                       className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded mr-2"
                     >
                       Preview
+                    </button>
+                    <button
+                      onClick={() => handleSummarize(doc.name)}
+                      disabled={summarizing === doc.name}
+                      className="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded mr-2"
+                    >
+                      {summarizing === doc.name ? 'Summarizing...' : 'Summarize'}
                     </button>
                     <button
                       onClick={() => handleDelete(doc.name)}
