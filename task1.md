@@ -166,7 +166,7 @@ Then login to Vercel:
 vercel login
 ```
 
-> [SCREENSHOT PLACEHOLDER — After logging into Vercel (or running `vercel login`), capture the login prompt and save a screenshot here.]
+> [SCREENSHOT PLACEHOLDER — After logging into Vercel (or running `vercel login`), capture the login prompt and save a screenshot here.]![alt text](image/vercel_login.png)
 
 Now deploy the app from the `my-app/` folder
 
