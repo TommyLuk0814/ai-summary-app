@@ -107,7 +107,7 @@ Open the forwarded port (Codespaces "Ports" tab) and confirm the page loads.
 
 Here is the default Next.js starter page you should see:
 
-> [SCREENSHOT PLACEHOLDER — After running the dev server, capture the Next.js starter page and save a screenshot here.]image/Next.js_starter_page.png
+> [SCREENSHOT PLACEHOLDER — After running the dev server, capture the Next.js starter page and save a screenshot here.]![image/Next.js_starter_page.png](image/Next.js_starter_page.png)
 
 
 
